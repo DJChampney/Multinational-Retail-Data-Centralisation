@@ -17,6 +17,20 @@ class DataExtractor:
     products_s3_link = 's3://data-handling-public/products.csv'
     orders_rds_table = 'orders_table'
     dates_html = "https://data-handling-public.s3.eu-west-1.amazonaws.com/date_details.json"
+    
+    def extract_all(self):
+        
+        self.users_df = self.read_rds_table(
+            self.users_rds_table, self.dbc_instance)
+        self.card_df = self.retrieve_pdf_data(
+            self.card_data_pdf_link)
+        self.number_of_stores = self.list_number_of_stores(
+            self.no_stores_endpoint, self.api_headers)
+        self.stores_df = self.retrieve_stores_data(self.stores_common_endpoint, 
+                                                self.api_headers)
+        self.products_df = self.extract_from_s3(self.products_s3_link)
+        self.orders_df = self.read_rds_table(self.orders_rds_table, self.dbc_instance)
+        self.dates_df = pd.read_json(self.dates_html)
 
     @classmethod
     def read_rds_table(cls, table_name, dbc_instance):
@@ -45,6 +59,7 @@ class DataExtractor:
         response = requests.get(no_of_stores_endpoint, headers=headers_dictionary)
         cls.number_of_stores = response.json()['number_stores']
         return f"{cls.number_of_stores} stores"
+    
     @classmethod
     def get_store_data(cls, store_number):
         """Used in the 'get_data_in_chunks' method could possibly lambda this?"""
@@ -102,17 +117,4 @@ class DataExtractor:
                                     Params={'Bucket': bucket, 
                                     'Key': file_path}))
         return products_df
-        
-    def extract_all(cls):
-        
-        cls.users_df = DataExtractor.read_rds_table(
-            cls.users_rds_table, cls.dbc_instance)
-        cls.card_df = cls.retrieve_pdf_data(
-            cls.card_data_pdf_link)
-        cls.number_of_stores = cls.list_number_of_stores(
-            cls.no_stores_endpoint, cls.api_headers)
-        cls.stores_df = cls.retrieve_stores_data(cls.stores_common_endpoint, 
-                                                cls.api_headers)
-        cls.products_df = cls.extract_from_s3(cls.products_s3_link)
-        cls.orders_df = cls.read_rds_table(cls.orders_rds_table, cls.dbc_instance)
-        cls.dates_df = pd.read_json(cls.dates_html)
+       

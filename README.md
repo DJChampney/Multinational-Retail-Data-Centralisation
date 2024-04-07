@@ -24,7 +24,7 @@ More specifically, the exact tasks that the methods are designed to perform are 
 - Run a default SQL query to format data types, implement a list of specified custom features to the database and add primary & foreign keys to the correct columns of each table in order to create a star-based schema
 - Run a selection of sample SQL queries on the new database
 
-
+These tasks are carried out by a set of python class methods, contained in the attached modules. More details are available in the __File Structure__ section below. 
 
 While building this repo, I have learned the importance of generalisation when writing class methods. While refactoring, I had noticed entire paragraphs of code that consisted of thematically similar lines and I subsequently created additional class methods to handle this. The ```universal_replace()``` method within ```DataCleaning```; for example, is a modified ```replace()``` method capable of taking DataFrame positional information as well as remove & replace values and an optional condition as arguments. This enabled me to use a common method to make mass changes to my DataFrame, which meant that I could loop the common method; passing a dictionary as an argument, thus making the code more scalable and user-friendly.
 
@@ -58,7 +58,7 @@ Before the classes and their contained methods are used, the dependencies must b
 
 On the command line, navigate to the downloaded repository folder and run:
 ```
-pip install -r requirements.txt
+$ pip install -r requirements.txt
 ```
 It is also necessary to create a blank SQL database, pgadmin4 will work for this.
 
@@ -78,7 +78,7 @@ An execution file ```build_sql_database.py```has been included, which performs t
 This can be executed from the command line by navigating to the project folder and running:
 
 ```
-$ python3 build_sql_database
+$ python3 build_sql_database.py
 ```
 
 
@@ -157,13 +157,42 @@ If you decide to use your own database names, please be aware that you will also
 ### Formatting
 At this stage, if the user has selected the default database values, the ```DatabaseConnector.run_sql_alteration_script()``` method may be called to format the database and create Primary & Foreign keys to complete the star-based database schema.
 
+As soon as the alteration script has been run, the message 'sales_data successfully formatted' will print. The database is now ready to be queried.
+![alt text](image-2.png)
+
 NOTE: There is an additional plain text document 'sql_query_script' containing several sample SQL queries that may be used to query the database.
+
+
 
 ## File structure of the project
 ### database_utils.py
 This module contains the ```DatabaseConnector``` class, which contains the necessary methods for reading credentials, connecting to Amazon RDS and uploading to PostgreSQL. I have also included an ```upload_all()``` method that will upload all of the currently specified dataframes together, as well as a ```run_sql_alteration_script()``` method that accesses the relevant attached plain text document to run an SQL query to adjust the database as required once it has been imported.
 
+```ask_for_credentials()``` Calls the three methods that ask the user for credentials; 
 
+```ask_for_db_creds()```
+
+```ask_for_postgres_creds()``` 
+
+```ask_for_aws_creds()```
+
+This automatically creates the relevant YAML files in the directory enabling the class to connect to the data sources. 
+
+
+```read_db_creds(file_path)``` Takes the file path to the RDS credentials as an argument and reads them into a dictionary. This is used in the ```init_db_engine()``` and the ```connect_to_sql_db()``` methods.
+
+```init_db_engine()``` Takes the dictionary output from 'read_db_creds' and initialises a database engine in order to connect with Amazon RDS.
+
+```list_db_tables()``` Takes the 'db_engine' output from 'init_db_engine' and returns a list of available Amazon RDS tables to extract from.
+
+```connect_to_sql_db()``` Called within the upload_to_db() method, takes the provided PostgreSQL credentials and creates an engine to connect.
+
+```upload_to_db(dataframe, table_name)``` Takes a dataframe and desired table name as arguments, and uploads the dataframe to an SQL database, defined by credentials stored in a YAML file, a message will print to confirm that the table has either been correctly uploaded, or that there has been an error
+
+```upload_all(de_instance)``` Takes an instance of DataExtractor as an argument and asks for user input to determine whether to use default or custom table  names when uploading to the database.
+
+```run_sql_alteration_script()``` Runs an SQL query stored in the working directory, which formats the column types of the SQL database and creates the star-based schema.
+        
 
 
 ### data_extraction.py
@@ -180,11 +209,6 @@ All of the given input information required to retrieve the data has been used t
 ![alt text](image-5.png)
 
 The ```extract_all()``` method then calls each relevant method within the class and passes these attributes as respective arguments to download all of the data from each of the different sources. 
-
-
-
-
-
 
 ``` read_rds_table(table_name, dbc)```:
 
@@ -211,17 +235,19 @@ Takes an Amazon S3 address as an argument and casts the information into a Panda
 #### data_cleaning.py
 The ```data_cleaning``` module contains the ```DataCleaning``` class, which holds a variety of separate methods for cleaning all of the data retrieved from the various sources.
 
-```clean_all()```; as mentioned above, takes an instance of ```DataExtractor``` (after the ```extract_all``` method has been called), and replaces the instance dataframes with their cleaned counterparts.
+```clean_all(de_instance)```; as mentioned above, takes an instance of ```DataExtractor``` (after the ```extract_all``` method has been called), and replaces the instance dataframes with their cleaned counterparts.
 
-```clean_user_data()``` Takes the 'users' rds DataFrame as an argument and correctly formats phone numbers, dates and country codes, and also removes any NULL or erroneous entries
+```clean_user_data(user_data)``` Takes the 'users' rds DataFrame as an argument and correctly formats phone numbers, dates and country codes, and also removes any NULL or erroneous entries
 
-```clean_card_data()``` takes a DataFrame of card details as an argument and cleans the data to remove any erroneous values, NULL values or errors with formatting.
+```clean_card_data(card_data)``` takes a DataFrame of card details as an argument and cleans the data to remove any erroneous values, NULL values or errors with formatting.
 
-```clean_stores_data()```  Takes the 'stores_df' retrieved from the API endpoint as an argument, removes the extra 'index' series, fixes the erroneous 'lat/latitude' columns and also formats the 'address', 'continent' and 'opening_date' columns, returning the cleaned DataFrame.
+```clean_stores_data(stores_df)```  Takes the 'stores_df' retrieved from the API endpoint as an argument, removes the extra 'index' series, fixes the erroneous 'lat/latitude' columns and also formats the 'address', 'continent' and 'opening_date' columns, returning the cleaned DataFrame.
 
-```clean_products_data()``` Takes the 'products_df' retrieved from S3 bucket as an argument, fixes spelling mistake in 'removed' series, gets ridof any null or erroneous rows, removes unnecessary index andformats the 'date_added' series. Finally, calls the ```convert_product_weights()``` method and returns the DataFrame
-        
-```clean_orders_table()``` Takes the 'orders_table' retrieved from RDS as an argument, and removes unnecessary columns as required, returning the DataFrame
+```clean_products_data(products_df)``` Takes the 'products_df' retrieved from S3 bucket as an argument, fixes spelling mistake in 'removed' series, gets ridof any null or erroneous rows, removes unnecessary index andformats the 'date_added' series. Finally, calls the ```convert_product_weights(products_df)``` method and returns the DataFrame.
+
+```convert_product_weights(products_df)``` Takes the cleaned 'products_df' as an argument and formats the 'weight' series. This converts ml, oz and g into kg, handles multipacks(eg '6 x 50g') and multiplies the weight by 1000 for any products in 'homeware' and 'toys-and-games' where the product weight is below 0.004kg(eliminating an input error), returning the adjusted DataFrame.
+
+```clean_orders_table()``` Takes the 'orders_table' retrieved from RDS as an argument, and removes unnecessary columns as required, returning the DataFrame.
 
 ```clean_date_details()``` Takes the 'date_details' table as an argument, removes erroneous/null values and casts the 'time_period' as a category, returning the DataFrame.
 
@@ -255,4 +281,26 @@ It takes the same df, column, insert and condition arguments as the ```universal
 
 
 
+
+
+
 ### License information
+Copyright (c) 2024 David Champney
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE

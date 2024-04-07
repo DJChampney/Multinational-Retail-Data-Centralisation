@@ -86,8 +86,7 @@ class DataCleaning:
         card_number_df['expiry_date'] = pd.to_datetime(
             card_number_df['expiry_date']).dt.strftime('%m/%y')
         return card_number_df
-    
-    
+
     def clean_stores_data(stores_df):
         """Takes the 'stores_df' retrieved from the API endpoint as an 
         argument, removes the extra 'index' series,fixes the erroneous 
@@ -108,7 +107,6 @@ class DataCleaning:
             stores_df['opening_date'], format='mixed', dayfirst=True
                                             ).dt.strftime('%Y-%m-%d')
         return stores_df
-
 
     def clean_products_data(products_df):
         """Takes the 'products_df' retrieved from S3 bucket as an 
@@ -133,7 +131,6 @@ class DataCleaning:
         products_df = DataCleaning.convert_product_weights(products_df)
         return products_df
     
-
     @staticmethod
     def convert_product_weights(products_df):
         """Takes the cleaned 'products_df' as an argument and formats the 
@@ -221,8 +218,7 @@ class DataCleaning:
             except NumberParseException:
                 raise Exception("Did not format: ", row["first_name"], 
                       row["last_name"], row["country_code"], row["phone_number"])
-                    
-    
+                      
     def universal_replace(df, column, remove, insert, condition=None, instance=1):
         """Replaces data within entries of a pandas dataframe with an optional condition:
             df : Relevant DataFrame
