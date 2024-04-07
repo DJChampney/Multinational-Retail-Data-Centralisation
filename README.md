@@ -37,7 +37,7 @@ After some research, I discovered that I was able to use the ```ThreadPoolExecut
 This, however, presented a new problem. Once the database had been extracted using ```ThreadPoolExecutor```, several of the row values had changed to NaN and a new series ```message``` had been created.
 On the NaN rows, the value in ```message``` read 'Too Many Requests'.
 ![alt text](image-3.png)
-So, with the knowledge of how to retrieve the complete dataframe in 3 minutes as well as how to retrieve an incomplete dataframe in a matter of seconds, it was simply a matter of reworking the code with a 'while' loop to reduce the block size by 1 if the ```message``` column was created.
+So, with the knowledge of how to retrieve the complete DataFrame in 3 minutes as well as how to retrieve an incomplete DataFrame in a matter of seconds, it was simply a matter of reworking the code with a 'while' loop to reduce the block size by 1 if the ```message``` column was created.
 ![alt text](image-4.png)
 
 By incorporating these changes, I was able to cut down the runtime of this method to less than a minute.
@@ -70,9 +70,9 @@ Once the dependencies are installed and the destination SQL database has been cr
 An execution file ```build_sql_database.py```has been included, which performs the following actions:
 - Ask the user for relevant credentials
 - Define an instance of DataExtractor
-- Extract the required dataframes into the DataExtractor instance
-- Clean the dataframes stored in the DataExtractor instance
-- Upload all of the cleaned dataframes into postgresql
+- Extract the required DataFrames into the DataExtractor instance
+- Clean the DataFrames stored in the DataExtractor instance
+- Upload all of the cleaned DataFrames into postgresql
 - Run an SQL query to format the database
 
 This can be executed from the command line by navigating to the project folder and running:
@@ -166,7 +166,7 @@ NOTE: There is an additional plain text document 'sql_query_script' containing s
 
 ## File structure of the project
 ### database_utils.py
-This module contains the ```DatabaseConnector``` class, which contains the necessary methods for reading credentials, connecting to Amazon RDS and uploading to PostgreSQL. I have also included an ```upload_all()``` method that will upload all of the currently specified dataframes together, as well as a ```run_sql_alteration_script()``` method that accesses the relevant attached plain text document to run an SQL query to adjust the database as required once it has been imported.
+This module contains the ```DatabaseConnector``` class, which contains the necessary methods for reading credentials, connecting to Amazon RDS and uploading to PostgreSQL. I have also included an ```upload_all()``` method that will upload all of the currently specified DataFrames together, as well as a ```run_sql_alteration_script()``` method that accesses the relevant attached plain text document to run an SQL query to adjust the database as required once it has been imported.
 
 ```ask_for_credentials()``` Calls the three methods that ask the user for credentials; 
 
@@ -187,7 +187,7 @@ This automatically creates the relevant YAML files in the directory enabling the
 
 ```connect_to_sql_db()``` Called within the upload_to_db() method, takes the provided PostgreSQL credentials and creates an engine to connect.
 
-```upload_to_db(dataframe, table_name)``` Takes a dataframe and desired table name as arguments, and uploads the dataframe to an SQL database, defined by credentials stored in a YAML file, a message will print to confirm that the table has either been correctly uploaded, or that there has been an error
+```upload_to_db(dataframe, table_name)``` Takes a DataFrame and desired table name as arguments, and uploads the DataFrame to an SQL database, defined by credentials stored in a YAML file, a message will print to confirm that the table has either been correctly uploaded, or that there has been an error
 
 ```upload_all(de_instance)``` Takes an instance of DataExtractor as an argument and asks for user input to determine whether to use default or custom table  names when uploading to the database.
 
@@ -235,7 +235,7 @@ Takes an Amazon S3 address as an argument and casts the information into a Panda
 #### data_cleaning.py
 The ```data_cleaning``` module contains the ```DataCleaning``` class, which holds a variety of separate methods for cleaning all of the data retrieved from the various sources.
 
-```clean_all(de_instance)```; as mentioned above, takes an instance of ```DataExtractor``` (after the ```extract_all``` method has been called), and replaces the instance dataframes with their cleaned counterparts.
+```clean_all(de_instance)```; as mentioned above, takes an instance of ```DataExtractor``` (after the ```extract_all``` method has been called), and replaces the instance DataFrames with their cleaned counterparts.
 
 ```clean_user_data(user_data)``` Takes the 'users' rds DataFrame as an argument and correctly formats phone numbers, dates and country codes, and also removes any NULL or erroneous entries
 
