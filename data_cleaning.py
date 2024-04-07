@@ -8,100 +8,19 @@ from data_extraction import DataExtractor
 from phonenumbers import PhoneNumberFormat, NumberParseException
 
 class DataCleaning:
-    def format_phonenumber(row):   
-    #this try-except will return none for any rows that do not conform
-        """Called within the 'clean_user_data' method, formats phonenumbers
-        internationally by country code, informs the user if there are any entries
-        that dont format correctly"""
-        try:
-            phone = phonenumbers.parse(row["phone_number"], row["country_code"])
-            formatted_phone = phonenumbers.format_number(
-                phone, PhoneNumberFormat.INTERNATIONAL
-                )
-            return formatted_phone
-        except NumberParseException:
-            if row["country_code"] == "DE":
-                row["phone_number"] = row["phone_number"].replace("00", "49", 1)
-            elif row["country_code"] == "US":
-                row["phone_number"] = '1' + row["phone_number"]
-            try: 
-                phone = phonenumbers.parse(row["phone_number"], row["country_code"])
-                formatted_phone = phonenumbers.format_number(phone, PhoneNumberFormat.INTERNATIONAL)
-                print("user data: phone numbers formatted")
-                return formatted_phone
-            except NumberParseException:
-                print("The following record(s) did not format", row["first_name"], 
-                      row["last_name"], row["country_code"], row["phone_number"])
-    
-    def universal_replace(df, column, remove, insert, condition=None, instance=1):
-    
-        """Replaces data within entries of a pandas dataframe with an optional condition:
-            df : Relevant DataFrame
-            column : Series containing the data that we want to replace
 
-            remove : Data to be replaced; can either be a string or list of strings
-            insert : Data to replace removed data
-            condition :  (Optional)What is specific about the data that we want to change ?
-                            e.g. (df['phone_number'].str.startswith('?'))
-        """
-        if condition is None:
-            condition = pd.Series([True]*len(df), index=df.index)
-
-        if instance == 0:
-            for character in remove:
-                df[column] = df[column].astype(str).str.replace(character, insert)
-            return df
-
-        if isinstance(remove,str):
-            df.loc[condition, column] = df.loc[condition, column].str.replace(remove,insert,instance)
-            return df
-        elif isinstance(remove, list):
-            for value in remove:
-                mask = (df[column].astype(str).str.startswith(value)) & condition
-                df.loc[mask, column] = df.loc[mask, column].str.replace(value, insert, instance)
-            return df
-   
-    def universal_batch_replace(df, replacements):
-        """Takes a dataframe and list of dictionaries as arguments, and makes 
-        multiple replacements within the dataframe using the values from the 
-        dictionary list
-        Dictionary syntax is as follows: 
-        {'column': 'column name',
-        'to_replace': 'value(s) to be removed'(str or list),
-        'value': 'replacement value',
-        'condition': (optional)'filter condition',
-        'instance': (optional)'instance; default 1 for 1st instance or 0 for all'        
-        }, {'column': ...},..."""
-        for replacement in replacements:
-            if 'condition' in replacement:
-                DataCleaning.universal_replace(
-                    df, replacement['column'], 
-                    replacement['to_replace'], 
-                    replacement['value'], 
-                    replacement['condition'])
-            elif 'instance' in replacement:
-                DataCleaning.universal_replace(
-                    df, replacement['column'], 
-                    replacement['to_replace'], 
-                    replacement['value'], 
-                    instance=replacement['instance'])
-            else:
-                DataCleaning.universal_replace(
-                    df, 
-                    replacement['column'], 
-                    replacement['to_replace'], 
-                    replacement['value'])
-        return df
-
-    def universal_append(df,column,insert,condition=None):
-        """Adds a string at the beginning of entries, either 
-        at the positions specified by the optional 'condition' argument
-        or the entire series as a default"""
-        if condition is None:
-            condition = pd.Series([True]*len(df), index=df.index)
-        df.loc[condition, column] = insert + df.loc[condition, column]
-        return df
-    
+    def clean_all(de_instance):
+        """Takes an instance of the DataExtractor Class as an argument, runs
+         the respective cleaning method for each of the DataFrames and updates
+        the de_instance with the cleaned data"""
+        de_instance.users_df = DataCleaning.clean_user_data(de_instance.users_df)
+        de_instance.card_df = DataCleaning.clean_card_data(de_instance.card_df)
+        de_instance.stores_df = DataCleaning.clean_stores_data(de_instance.stores_df)
+        de_instance.products_df = DataCleaning.clean_products_data(de_instance.products_df)
+        de_instance.orders_df = DataCleaning.clean_orders_table(de_instance.orders_df)
+        de_instance.dates_df = DataCleaning.clean_date_details(de_instance.dates_df)
+        return de_instance
+            
     def clean_user_data(user_data):
         """Takes the 'users' rds dataframe as an argument and correctly formats 
         phone numbers, dates and country codes, and also removes any null or 
@@ -195,7 +114,8 @@ class DataCleaning:
         """Takes the 'products_df' retrieved from S3 bucket as an 
         argument, fixes spelling mistake in 'removed' series, gets rid
          of any null or erroneous rows, removes unnecessary index and
-         formats the 'date_added' series"""
+         formats the 'date_added' series. Finally, calls the 
+         convert_product_weights method and returns the dataframe"""
         print("cleaning products data")        
         DataCleaning.universal_replace(products_df, 'removed', 'Still_avaliable',
                                        'Still_available')
@@ -278,12 +198,97 @@ class DataCleaning:
         date_df['time_period'] = date_df['time_period'].astype('category')
         return date_df
     
+    def format_phonenumber(row):   
+        """Called within the 'clean_user_data' method, formats phonenumbers
+        internationally by country code, informs the user if there are any entries
+        that dont format correctly"""
+        try:
+            phone = phonenumbers.parse(row["phone_number"], row["country_code"])
+            formatted_phone = phonenumbers.format_number(
+                phone, PhoneNumberFormat.INTERNATIONAL
+                )
+            return formatted_phone
+        except NumberParseException:
+            if row["country_code"] == "DE":
+                row["phone_number"] = row["phone_number"].replace("00", "49", 1)
+            elif row["country_code"] == "US":
+                row["phone_number"] = '1' + row["phone_number"]
+            try: 
+                phone = phonenumbers.parse(row["phone_number"], row["country_code"])
+                formatted_phone = phonenumbers.format_number(phone, PhoneNumberFormat.INTERNATIONAL)
+                print("user data: phone numbers formatted")
+                return formatted_phone
+            except NumberParseException:
+                raise Exception("Did not format: ", row["first_name"], 
+                      row["last_name"], row["country_code"], row["phone_number"])
+                    
     
-    def clean_all(de_instance):
-        de_instance.users_df = DataCleaning.clean_user_data(de_instance.users_df)
-        de_instance.card_df = DataCleaning.clean_card_data(de_instance.card_df)
-        de_instance.stores_df = DataCleaning.clean_stores_data(de_instance.stores_df)
-        de_instance.products_df = DataCleaning.clean_products_data(de_instance.products_df)
-        de_instance.orders_df = DataCleaning.clean_orders_table(de_instance.orders_df)
-        de_instance.dates_df = DataCleaning.clean_date_details(de_instance.dates_df)
-        return de_instance
+    def universal_replace(df, column, remove, insert, condition=None, instance=1):
+        """Replaces data within entries of a pandas dataframe with an optional condition:
+            df : Relevant DataFrame
+            column : Series containing the data that we want to replace
+            remove : Data to be replaced; can either be a string or list of strings
+            insert : Data to replace removed data
+            condition :  (Optional)What is specific about the data that we want to change ?
+                            e.g. (df['phone_number'].str.startswith('?'))
+        """
+        if condition is None:
+            condition = pd.Series([True]*len(df), index=df.index)
+
+        if instance == 0:
+            for character in remove:
+                df[column] = df[column].astype(str).str.replace(character, insert)
+            return df
+
+        if isinstance(remove,str):
+            df.loc[condition, column] = df.loc[condition, column].str.replace(remove,insert,instance)
+            return df
+        elif isinstance(remove, list):
+            for value in remove:
+                mask = (df[column].astype(str).str.startswith(value)) & condition
+                df.loc[mask, column] = df.loc[mask, column].str.replace(value, insert, instance)
+            return df
+   
+    def universal_batch_replace(df, replacements):
+        """Takes a dataframe and list of dictionaries as arguments, and makes 
+        multiple replacements within the dataframe using the values from the 
+        dictionary list
+        Dictionary syntax is as follows: 
+        {'column': 'column name',
+        'to_replace': 'value(s) to be removed'(str or list),
+        'value': 'replacement value',
+        'condition': (optional)'filter condition',
+        'instance': (optional)'instance; default 1 for 1st instance or 0 for all'        
+        }, {'column': ...},..."""
+        for replacement in replacements:
+            if 'condition' in replacement:
+                DataCleaning.universal_replace(
+                    df, replacement['column'], 
+                    replacement['to_replace'], 
+                    replacement['value'], 
+                    replacement['condition'])
+            elif 'instance' in replacement:
+                DataCleaning.universal_replace(
+                    df, replacement['column'], 
+                    replacement['to_replace'], 
+                    replacement['value'], 
+                    instance=replacement['instance'])
+            else:
+                DataCleaning.universal_replace(
+                    df, 
+                    replacement['column'], 
+                    replacement['to_replace'], 
+                    replacement['value'])
+        return df
+
+    def universal_append(df,column,insert,condition=None):
+        """Adds a string at the beginning of entries, either 
+        at the positions specified by the optional 'condition' argument
+        or the entire series as a default"""
+        if condition is None:
+            condition = pd.Series([True]*len(df), index=df.index)
+        df.loc[condition, column] = insert + df.loc[condition, column]
+        return df
+
+    
+

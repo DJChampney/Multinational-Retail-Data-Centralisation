@@ -7,30 +7,24 @@ import concurrent.futures
 from tqdm import tqdm
 
 class DataExtractor:
-    def __init__(self):
-        self.dbc_instance = dbc()
-        self.users_df = DataExtractor.read_rds_table('legacy_users', self.dbc_instance)
-        self.card_df = self.retrieve_pdf_data(
-            'https://data-handling-public.s3.eu-west-1.amazonaws.com/card_details.pdf')
-        self.number_of_stores = self.list_number_of_stores(
-            "https://aqj7u5id95.execute-api.eu-west-1.amazonaws.com/prod/number_stores", 
-            { "x-api-key":"yFBQbwXe9J3sd6zWVAMrK6lcxxr0q1lr2PT6DDMX"})
 
-        self.stores_df = self.retrieve_stores_data(
-        'https://aqj7u5id95.execute-api.eu-west-1.amazonaws.com/prod/store_details', 
-        { 'x-api-key':'yFBQbwXe9J3sd6zWVAMrK6lcxxr0q1lr2PT6DDMX'})
-        self.products_df = self.extract_from_s3('s3://data-handling-public/products.csv')
-        self.orders_df = self.read_rds_table('orders_table', self.dbc_instance)
-        self.dates_df = pd.read_json(
-            "https://data-handling-public.s3.eu-west-1.amazonaws.com/date_details.json")
+    dbc_instance = dbc()
+    users_rds_table = 'legacy_users'
+    card_data_pdf_link = 'https://data-handling-public.s3.eu-west-1.amazonaws.com/card_details.pdf'
+    api_headers = { "x-api-key":"yFBQbwXe9J3sd6zWVAMrK6lcxxr0q1lr2PT6DDMX"}
+    no_stores_endpoint = "https://aqj7u5id95.execute-api.eu-west-1.amazonaws.com/prod/number_stores"
+    stores_common_endpoint = 'https://aqj7u5id95.execute-api.eu-west-1.amazonaws.com/prod/store_details'
+    products_s3_link = 's3://data-handling-public/products.csv'
+    orders_rds_table = 'orders_table'
+    dates_html = "https://data-handling-public.s3.eu-west-1.amazonaws.com/date_details.json"
 
     @classmethod
-    def read_rds_table(cls, table_name, dbc):
+    def read_rds_table(cls, table_name, dbc_instance):
         print(f"getting data from RDS table: {table_name}")
         """Takes a 'table_name' and a DatabaseConnector instance as 
         arguments and returns the specified RDS table as a DataFrame"""
         rds_df = pd.read_sql_query(f'SELECT * FROM {table_name}', 
-                                       dbc.init_db_engine())
+                                       dbc_instance.init_db_engine())
         cls.users_df = rds_df
         return rds_df
     
@@ -43,6 +37,7 @@ class DataExtractor:
         pdf_data = pd.concat(pdf_data)
         pdf_data = pdf_data.reset_index(drop=True)
         return pdf_data
+    
     @classmethod
     def list_number_of_stores(cls,no_of_stores_endpoint, headers_dictionary):
         """Takes an API endpoint and a headers dictionary as arguments and 
@@ -56,8 +51,9 @@ class DataExtractor:
         url = f"{cls.url}/{store_number}"
         response = requests.get(url, headers=cls.headers_dictionary)
         return response.json()
-    
-    def get_data_in_chunks(store_numbers, chunk_size=6):
+        
+    @staticmethod
+    def get_data_in_chunks(store_numbers, chunk_size=5):
         """Submethod used by 'retrieve_stores_data', collects data from the 
         API in chunks to mitigate code runtime. If the 'message' column is created
         in the dataframe, then the chunk size is reduced"""
@@ -106,3 +102,17 @@ class DataExtractor:
                                     Params={'Bucket': bucket, 
                                     'Key': file_path}))
         return products_df
+        
+    def extract_all(cls):
+        
+        cls.users_df = DataExtractor.read_rds_table(
+            cls.users_rds_table, cls.dbc_instance)
+        cls.card_df = cls.retrieve_pdf_data(
+            cls.card_data_pdf_link)
+        cls.number_of_stores = cls.list_number_of_stores(
+            cls.no_stores_endpoint, cls.api_headers)
+        cls.stores_df = cls.retrieve_stores_data(cls.stores_common_endpoint, 
+                                                cls.api_headers)
+        cls.products_df = cls.extract_from_s3(cls.products_s3_link)
+        cls.orders_df = cls.read_rds_table(cls.orders_rds_table, cls.dbc_instance)
+        cls.dates_df = pd.read_json(cls.dates_html)

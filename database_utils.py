@@ -5,38 +5,43 @@ from sqlalchemy import inspect
 
 
 class DatabaseConnector:
-    def __init__(self):
-        self.db_engine = DatabaseConnector.init_db_engine
-
+    
     @staticmethod
-    def read_db_creds(file_path): 
+    def ask_for_credentials():
+        DatabaseConnector.ask_for_db_creds()
+        DatabaseConnector.ask_for_postgres_creds()
+        DatabaseConnector.ask_for_aws_creds()
+
+    @classmethod
+    def read_db_creds(cls, file_path): 
         """Takes the (.yaml) file path to relevant credentials as an argument,
          reads the file and returns them as a variable"""
-        with open(file_path, 'r') as f:
+        with open(file_path, "r") as f:
             try:
-                credentials = yaml.safe_load(f)
-                return credentials 
+                cls.rds_credentials = yaml.safe_load(f)
+                return cls.rds_credentials 
             except yaml.YAMLError as exc:
                 print(exc)
-    
-    def init_db_engine(self):
+
+    @classmethod
+    def init_db_engine(cls):
         """Takes the variable output from 'read_db_creds' and initialises a
         database engine in order to connect with the Amazon RDS database"""
-        credentials = self.read_db_creds('db_creds.yaml')
-        database_type = credentials['TYPE']
-        username = credentials['RDS_USER']
-        password = credentials['RDS_PASSWORD']
-        hostname = credentials['RDS_HOST']
-        database = credentials['RDS_DATABASE']
+        credentials = cls.read_db_creds('db_creds.yaml')
+        database_type = cls.rds_credentials['TYPE']
+        username = cls.rds_credentials['RDS_USER']
+        password = cls.rds_credentials['RDS_PASSWORD']
+        hostname = cls.rds_credentials['RDS_HOST']
+        database = cls.rds_credentials['RDS_DATABASE']
         db_engine = create_engine(f"{database_type}://{username}:{password}@{hostname}/{database}")
         return db_engine
 
-    
-    def list_db_tables(self):
+    @classmethod
+    def list_db_tables(cls):
         """Takes the 'db_engine' output from 'init_db_engine' and returns a 
         list of available Amazon RDS tables to extract from"""        
-        self.db_engine.execution_options(isolation_level='AUTOCOMMIT').connect
-        inspector = inspect(self.db_engine) 
+        cls.db_engine.execution_options(isolation_level='AUTOCOMMIT').connect
+        inspector = inspect(cls.db_engine) 
         table_names = inspector.get_table_names()
         return table_names
     
@@ -51,6 +56,7 @@ class DatabaseConnector:
         port = pg_creds['port']
         cls.sql_db_engine = create_engine(f"{database_type}://{user}:{password}@{host}:{port}/{database}")
         return cls.sql_db_engine
+    
     @staticmethod
     def upload_to_db(dataframe, table_name):
         """Takes a dataframe and desired table name as arguments, and uploads 
@@ -66,6 +72,7 @@ class DatabaseConnector:
             print(f"Data uploaded successfully to table '{table_name}'.")
         except Exception as e:
             print(f"Error uploading data to {table_name}: {str(e)} ")
+
     @staticmethod
     def upload_all(de_instance):
         print("Use default database names?")
@@ -111,3 +118,62 @@ class DatabaseConnector:
                     sql_statement = text(statement)
                     connection.execute(sql_statement)
                     connection.commit()
+    
+    @staticmethod
+    def ask_for_db_creds():
+        default_db_and_port = input("RDS Database: postgres & RDS port: 5432?(Y/N): ")
+
+        if default_db_and_port.upper() == "Y":
+            rds_database = "postgres"
+            rds_port = 5432
+        elif default_db_and_port.upper() == "N": 
+            rds_database = f"{input("Please enter RDS database(eg. 'postgres'): ")}"
+            rds_port = f"{input("Please enter RDS port(eg. '5432'): ")}"
+        else:
+            input(f"Did not recognize {default_db_and_port}, RDS Database: postgres & RDS port: 5432?(Y/N) ")           
+
+        rds_creds = {"TYPE": "postgresql",
+            "RDS_HOST": input('Please enter RDS host: '),
+            "RDS_USER": input('Please enter RDS username: '),
+            "RDS_PASSWORD": input('Please enter RDS password: ' ),
+            "RDS_DATABASE": rds_database,
+            "RDS_PORT": rds_port}
+        file_name = "db_creds.yaml"
+        with open(file_name, "w") as yaml_file:
+            yaml.dump(rds_creds, yaml_file)
+
+    @staticmethod
+    def ask_for_postgres_creds():
+        default_db_and_port = input("RDS User: postgres, RDS Database: postgresql, RDS host: localhost & RDS port: 5432?(Y/N): : ")
+
+        if default_db_and_port.upper() == "Y":
+            user = "postgres"
+            database = "postgresql"
+            host = "localhost"
+            port = 5432
+        elif default_db_and_port.upper() == "N": 
+            database = f"{input("Please enter RDS database(eg. 'postgresql'): ")}"
+            host = input("Please enter postgres host: ")
+            port = f"{input("Please enter RDS port(eg. '5432'): ")}"
+        else:
+            input(f"Did not recognize {default_db_and_port}, RDS Database: postgresql & RDS port: 5432?(Y/N) ")           
+
+        postgres_creds = {"database_type": database,
+        "database": "sales_data",
+        "user": user,
+        "password": input(f"Please enter {database} password: "),
+        "host": host,
+        "port": port}
+            
+        file_name = "postgres_creds.yaml"
+        with open(file_name, "w") as yaml_file:
+            yaml.dump(postgres_creds, yaml_file)
+
+    @staticmethod
+    def ask_for_aws_creds():
+        aws_creds = {"access_key": input('Please enter AWS access key: '),
+            "secret_access_key": input('Please enter AWS secret access key: ')}
+            
+        file_name = "aws_creds.yaml"
+        with open(file_name, "w") as yaml_file:
+            yaml.dump(aws_creds, yaml_file)
