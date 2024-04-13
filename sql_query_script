@@ -160,7 +160,7 @@ WITH time_differences AS (
         CONCAT(year, '-', month, '-', day, ' ', timestamp))::timestamp)) AS time_diff
     FROM dim_date_times
 )
-SELECT year, 
+SELECT year,
     CONCAT('"hours": ', FLOOR(AVG(time_diff) / 3600), (', '),
         '"minutes": ', FLOOR((AVG(time_diff) % 3600) / 60),(', '),
         '"seconds": ', FLOOR(AVG(time_diff) % 60),(', '),
