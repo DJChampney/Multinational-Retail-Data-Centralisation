@@ -169,4 +169,3 @@ FROM time_differences
 GROUP BY year
 ORDER BY AVG(time_diff) DESC
 LIMIT 5;
-
