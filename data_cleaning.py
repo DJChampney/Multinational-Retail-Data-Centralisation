@@ -6,6 +6,7 @@ import phonenumbers
 from database_utils import DatabaseConnector as dbc
 from data_extraction import DataExtractor
 from phonenumbers import PhoneNumberFormat, NumberParseException
+import numpy as np
 
 class DataCleaning:
 
@@ -103,6 +104,8 @@ class DataCleaning:
         ]
         DataCleaning.universal_batch_replace(stores_df, stores_df_replacements)
         stores_df["staff_numbers"] = stores_df["staff_numbers"].str.replace(r'\D', '', regex=True)
+        #stores_df["longitude"] = stores_df["longitude"].replace('N/A', np.nan)
+        #stores_df['longitude'] = pd.to_numeric(stores_df['longitude'])
         stores_df['opening_date'] = pd.to_datetime(
             stores_df['opening_date'], format='mixed', dayfirst=True
                                             ).dt.strftime('%Y-%m-%d')
@@ -147,7 +150,7 @@ class DataCleaning:
             ]
         DataCleaning.universal_batch_replace(products_df, products_replacements)
 
-        #handle multipack weights
+        
         split_df = products_df.loc[
             products_df['weight'].str.contains(" x ", na=False), 'weight'
             ].str.split(" x ", expand=True)            

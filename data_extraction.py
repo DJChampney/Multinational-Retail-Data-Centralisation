@@ -4,6 +4,7 @@ import requests
 import tabula
 import boto3
 import concurrent.futures
+import os
 from tqdm import tqdm
 
 class DataExtractor:
@@ -30,20 +31,19 @@ class DataExtractor:
                                                 self.api_headers)
         self.products_df = self.extract_from_s3(self.products_s3_link)
         self.orders_df = self.read_rds_table(self.orders_rds_table, self.dbc_instance)
-        self.dates_df = pd.read_json(self.dates_html)
+        self.dates_df = self.extract_json_from_url(self.dates_html)
 
-    @classmethod
-    def read_rds_table(cls, table_name, dbc_instance):
+    
+    def read_rds_table(self, table_name, dbc_instance):
         print(f"getting data from RDS table: {table_name}")
         """Takes a 'table_name' and a DatabaseConnector instance as 
         arguments and returns the specified RDS table as a DataFrame"""
         rds_df = pd.read_sql_query(f'SELECT * FROM {table_name}', 
                                        dbc_instance.init_db_engine())
-        cls.users_df = rds_df
         return rds_df
     
-    @classmethod
-    def retrieve_pdf_data(cls, link):
+    
+    def retrieve_pdf_data(self, link):
         """Takes an html link to a PDF as an argument, concatenates
         the pages and returns a dataframe"""   
         print('retrieving card_data from pdf')
@@ -52,23 +52,23 @@ class DataExtractor:
         pdf_data = pdf_data.reset_index(drop=True)
         return pdf_data
     
-    @classmethod
-    def list_number_of_stores(cls,no_of_stores_endpoint, headers_dictionary):
+    
+    def list_number_of_stores(self,no_of_stores_endpoint, headers_dictionary):
         """Takes an API endpoint and a headers dictionary as arguments and 
         returns the number of available stores to extract data from"""
         response = requests.get(no_of_stores_endpoint, headers=headers_dictionary)
-        cls.number_of_stores = response.json()['number_stores']
-        return f"{cls.number_of_stores} stores"
+        self.number_of_stores = int(response.json()['number_stores'])
+        return self.number_of_stores
     
-    @classmethod
-    def get_store_data(cls, store_number):
+    
+    def get_store_data(self, store_number):
         """Used in the 'get_data_in_chunks' method could possibly lambda this?"""
-        url = f"{cls.url}/{store_number}"
-        response = requests.get(url, headers=cls.headers_dictionary)
+        url = f"{self.url}/{store_number}"
+        response = requests.get(url, headers=self.headers_dictionary)
         return response.json()
         
-    @staticmethod
-    def get_data_in_chunks(store_numbers, chunk_size=5):
+    
+    def get_data_in_chunks(self, store_numbers, chunk_size=5):
         """Submethod used by 'retrieve_stores_data', collects data from the 
         API in chunks to mitigate code runtime. If the 'message' column is created
         in the dataframe, then the chunk size is reduced"""
@@ -77,7 +77,7 @@ class DataExtractor:
             with concurrent.futures.ThreadPoolExecutor(max_workers=chunk_size) as executor:
                     for i in tqdm(range(0, len(store_numbers), chunk_size)):
                         chunk = store_numbers[i:i+chunk_size]
-                        results = list(executor.map(DataExtractor.get_store_data, chunk))
+                        results = list(executor.map(self.get_store_data, chunk))
                         stores_data.extend(results)
                         df_chunk = pd.DataFrame(results)
                         if 'message' in df_chunk.columns:
@@ -89,26 +89,26 @@ class DataExtractor:
         print("Could not retrieve dataframe")
         return None
 
-    @classmethod
-    def retrieve_stores_data(cls,endpoint, headers):
+    
+    def retrieve_stores_data(self,endpoint, headers):
         print("Retrieving stores data from API")
-        cls.url = endpoint
-        cls.headers_dictionary = headers
-        store_numbers = range(cls.number_of_stores) 
-        stores_data = cls.get_data_in_chunks(store_numbers)
+        self.url = endpoint
+        self.headers_dictionary = headers
+        store_numbers = range(self.number_of_stores) 
+        stores_data = self.get_data_in_chunks(store_numbers)
         """Takes the API endpoint and headers dictionary as arguments,
         and uses the 'number_of_stores' value from list_number_of_stores
         to retrieve the data from all API endpoints"""
         return pd.DataFrame(stores_data)
         
-    @classmethod       
-    def extract_from_s3(cls, address):
+         
+    def extract_from_s3(self, address):
         """Takes an Amazon S3 bucket address as an argument and converts it 
         into a DataFrame""" 
         print('Extracting products_df from S3')
         bucket = address.split('/')[2]
         file_path = '/'.join(address.split('/')[3:])
-        credentials = dbc.read_db_creds('aws_creds.yaml')
+        credentials = self.dbc_instance.read_db_creds('aws_creds.yaml')
         s3 = boto3.client('s3', 
                           aws_access_key_id= credentials['access_key'],
                           aws_secret_access_key= credentials['secret_access_key'])
@@ -118,3 +118,14 @@ class DataExtractor:
                                     'Key': file_path}))
         return products_df
        
+    def extract_json_from_url(self, json_url):
+        """Saves json data locally, stores as a df object 
+        and then deletes the file"""
+        response = requests.get(json_url)
+
+        with open('dates_df.json', 'wb') as file:
+            file.write(response.content)
+
+        dates_df = pd.read_json('dates_df.json')
+        os.remove('dates_df.json')
+        return dates_df
